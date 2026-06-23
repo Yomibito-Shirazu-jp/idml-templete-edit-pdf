@@ -239,32 +239,39 @@ def main():
     zipfile.ZipFile(args.template).extractall(WORK)
 
     # body story → chapter indices
+    # Template has 7 chapter areas; PMI has prologue+ch1-6+epilogue=8.
+    # u987 area = prologue; u10a9-u1e63 = ch1-5; u2292 = ch6+epilogue combined.
     ASSIGN = {
-        'u987':  [0, 1], 'u10a9': [2], 'u12fa': [3],
-        'u154b': [4], 'u194b': [5], 'u1e63': [6], 'u2292': [7],
+        'u987':  [0],         # prologue
+        'u10a9': [1],         # ch1
+        'u12fa': [2],         # ch2
+        'u154b': [3],         # ch3
+        'u194b': [4],         # ch4
+        'u1e63': [5],         # ch5
+        'u2292': [6, 7],      # ch6 + epilogue (epilogue gets inline heading)
     }
     # chapter index → (章番号 story, 章タイトル story)
-    # prologue (idx=0) has no dedicated heading frame; ch1-epilogue do
+    # ch6 (idx=6) uses u2261/u227b; epilogue (idx=7) shares u2292 body, inline heading
     HEADING_ASSIGN = {
-        1: ('u955',  'u970'),
-        2: ('u1076', 'u1092'),
-        3: ('u12c9', 'u12e3'),
-        4: ('u151a', 'u1534'),
-        5: ('u191a', 'u1934'),
-        6: ('u1e32', 'u1e4c'),
-        7: ('u2261', 'u227b'),
+        0: ('u955',  'u970'),    # prologue
+        1: ('u1076', 'u1092'),   # ch1
+        2: ('u12c9', 'u12e3'),   # ch2
+        3: ('u151a', 'u1534'),   # ch3
+        4: ('u191a', 'u1934'),   # ch4
+        5: ('u1e32', 'u1e4c'),   # ch5
+        6: ('u2261', 'u227b'),   # ch6
     }
 
     for sid, idxs in ASSIGN.items():
         items = []
         for k in idxs:
             ch = final[k]
-            if k == 0:
-                # prologue has no dedicated heading frame; embed inline
+            if k not in HEADING_ASSIGN:
+                # No dedicated heading frame (epilogue): embed inline
                 if ch['label']:
                     items.append({'style': '01-01 章 第◯章', 'seq': [['t', ch['label']]]})
                 items.append({'style': '01-01 章 タイトル', 'seq': [['t', ch['title']]]})
-            # chapters 1-7: heading goes to dedicated stories; only body here
+            # All other chapters: heading goes to dedicated stories; only body here
             items.extend(ch['items'])
         psr = '\n'.join(para_xml(it['style'], it['seq']) for it in items)
         replace_story_body(os.path.join(WORK, 'Stories', f'Story_{sid}.xml'), psr)
