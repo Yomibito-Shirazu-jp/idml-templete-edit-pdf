@@ -201,7 +201,7 @@ def main():
             cur['items'].append({'style': '01-02 節 数字',  'seq': [['t', c[1]]]})
             cur['items'].append({'style': '01-02 節 見出し', 'seq': [['t', c[2]]]})
         elif c[0] == 'KOU':
-            cur['items'].append({'style': '01-03 項 見出し', 'seq': conv_seq(pp['seq'], hfn)})
+            cur['items'].append({'style': '01-04 ■小見出し', 'seq': conv_seq(pp['seq'], hfn)})
         else:
             cur['items'].append({'style': '01 本文', 'seq': conv_seq(pp['seq'], hfn)})
 
@@ -238,28 +238,59 @@ def main():
     if os.path.exists(WORK): shutil.rmtree(WORK)
     zipfile.ZipFile(args.template).extractall(WORK)
 
+    # body story → chapter indices
     ASSIGN = {
         'u987':  [0, 1], 'u10a9': [2], 'u12fa': [3],
         'u154b': [4], 'u194b': [5], 'u1e63': [6], 'u2292': [7],
     }
+    # chapter index → (章番号 story, 章タイトル story)
+    # prologue (idx=0) has no dedicated heading frame; ch1-epilogue do
+    HEADING_ASSIGN = {
+        1: ('u955',  'u970'),
+        2: ('u1076', 'u1092'),
+        3: ('u12c9', 'u12e3'),
+        4: ('u151a', 'u1534'),
+        5: ('u191a', 'u1934'),
+        6: ('u1e32', 'u1e4c'),
+        7: ('u2261', 'u227b'),
+    }
+
     for sid, idxs in ASSIGN.items():
         items = []
         for k in idxs:
             ch = final[k]
-            if ch['label']:
-                items.append({'style': '01-01 章 第◯章',  'seq': [['t', ch['label']]]})
-            items.append({'style': '01-01 章 タイトル', 'seq': [['t', ch['title']]]})
+            if k == 0:
+                # prologue has no dedicated heading frame; embed inline
+                if ch['label']:
+                    items.append({'style': '01-01 章 第◯章', 'seq': [['t', ch['label']]]})
+                items.append({'style': '01-01 章 タイトル', 'seq': [['t', ch['title']]]})
+            # chapters 1-7: heading goes to dedicated stories; only body here
             items.extend(ch['items'])
         psr = '\n'.join(para_xml(it['style'], it['seq']) for it in items)
         replace_story_body(os.path.join(WORK, 'Stories', f'Story_{sid}.xml'), psr)
         print(f"  {sid}: {len(items)} paragraphs")
 
-    # empty heading stories
-    EMPTY = (f'<ParagraphStyleRange AppliedParagraphStyle="ParagraphStyle/$ID/NormalParagraphStyle">'
-             f'<CharacterStyleRange AppliedCharacterStyle="{CS_NONE}"><Br /></CharacterStyleRange></ParagraphStyleRange>')
-    for sid in ['u1076','u12c9','u151a','u191a','u1e32','u2261','u955',
-                'u1092','u12e3','u1534','u1934','u1e4c','u227b','u970',
-                'u10c5','u1316','u1567','u1967','u1e7f','u22ae','u259a',
+    # write dedicated chapter heading stories
+    HEADING_EMPTY = (
+        f'<ParagraphStyleRange AppliedParagraphStyle="ParagraphStyle/$ID/NormalParagraphStyle">'
+        f'<CharacterStyleRange AppliedCharacterStyle="{CS_NONE}"><Br /></CharacterStyleRange></ParagraphStyleRange>'
+    )
+    for ch_idx, (label_sid, title_sid) in HEADING_ASSIGN.items():
+        ch = final[ch_idx]
+        label = ch['label'] or ch['title']
+        replace_story_body(
+            os.path.join(WORK, 'Stories', f'Story_{label_sid}.xml'),
+            para_xml('01-01 章 第◯章', [['t', label]])
+        )
+        replace_story_body(
+            os.path.join(WORK, 'Stories', f'Story_{title_sid}.xml'),
+            para_xml('01-01 章 タイトル', [['t', ch['title']]])
+        )
+        print(f"  heading {ch_idx}: {label_sid}={label!r:.20} / {title_sid}={ch['title']!r:.20}")
+
+    # empty remaining heading/section stories (section-start frames)
+    EMPTY = HEADING_EMPTY
+    for sid in ['u10c5','u1316','u1567','u1967','u1e7f','u22ae','u259a',
                 'u2e92','u2fb2','u2fe8','u301e','u3053','u326a','u32a0',
                 'u32df','u3315','u3350','u3576','u35c5','u3603','u36c5',
                 'uca5','ud7b','u10dc','u132d','u157e','u197e','u1e96',
