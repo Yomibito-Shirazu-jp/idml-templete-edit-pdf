@@ -1,0 +1,5 @@
+output/
+xml/
+__pycache__/
+*.pyc
+C:\tmp\*
