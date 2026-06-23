@@ -1,5 +1,14 @@
 output/
+output/_build_work/
 xml/
 __pycache__/
 *.pyc
 C:\tmp\*
+
+# 原稿 docx は非公開のため git 管理外
+# GitHub Actions で使う場合は private repo に push すること
+data/*.docx
+
+# ローカル作業ファイル
+patch_report.txt
+

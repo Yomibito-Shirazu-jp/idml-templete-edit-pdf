@@ -1,0 +1,68 @@
+name: Build IDML from docx
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/*.docx'
+      - 'scripts/docx_to_idml.py'
+      - 'templates/pmi_template.idml'
+  workflow_dispatch:          # 手動実行ボタン
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check docx files exist
+        run: |
+          HONBUN=$(ls data/子会社売却のPMI*.docx 2>/dev/null | head -1)
+          ZADAN=$(ls "data/座談会 原稿.docx" 2>/dev/null || ls data/座談会*.docx 2>/dev/null | head -1)
+          if [ -z "$HONBUN" ]; then
+            echo "ERROR: 本文 docx が data/ に見つかりません"
+            echo "  data/子会社売却のPMI.docx を配置してください"
+            exit 1
+          fi
+          if [ -z "$ZADAN" ]; then
+            echo "ERROR: 座談会 docx が data/ に見つかりません"
+            echo "  data/座談会 原稿.docx を配置してください"
+            exit 1
+          fi
+          echo "HONBUN=$HONBUN" >> $GITHUB_ENV
+          echo "ZADAN=$ZADAN"   >> $GITHUB_ENV
+
+      - name: Build IDML from docx
+        run: |
+          mkdir -p output
+          python scripts/docx_to_idml.py \
+            --honbun  "$HONBUN" \
+            --zadan   "$ZADAN" \
+            --template templates/pmi_template.idml \
+            --output  output/pmi_built.idml
+
+      - name: Upload IDML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pmi_built_idml
+          path: output/pmi_built.idml
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          SIZE=$(wc -c < output/pmi_built.idml)
+          echo "### IDML ビルド完了 (docx → IDML)" >> $GITHUB_STEP_SUMMARY
+          echo "- ファイル: \`output/pmi_built.idml\`" >> $GITHUB_STEP_SUMMARY
+          echo "- サイズ: ${SIZE} bytes" >> $GITHUB_STEP_SUMMARY
+          echo "- コミット: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "次のステップ: InDesign で開き、オーバーフローを確認してください。" >> $GITHUB_STEP_SUMMARY

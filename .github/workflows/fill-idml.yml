@@ -1,0 +1,44 @@
+name: Fill IDML from CSV
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'idml_variable_map.csv'
+      - 'templates/pmi_template_variables.idml'
+  workflow_dispatch:          # 手動実行ボタン
+
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install lxml
+
+      - name: Fill IDML
+        run: |
+          mkdir -p output
+          python scripts/fill_idml_from_csv.py
+
+      - name: Upload IDML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pmi_filled_idml
+          path: output/pmi_filled.idml
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          SIZE=$(wc -c < output/pmi_filled.idml)
+          echo "### IDML 生成完了" >> $GITHUB_STEP_SUMMARY
+          echo "- ファイル: \`output/pmi_filled.idml\`" >> $GITHUB_STEP_SUMMARY
+          echo "- サイズ: ${SIZE} bytes" >> $GITHUB_STEP_SUMMARY
+          echo "- コミット: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
